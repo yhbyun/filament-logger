@@ -28,8 +28,7 @@ abstract class AbstractModelLogger
         return Str::of(class_basename($model))->headline();
     }
 
-
-    protected function activityLogger(string $logName = null): ActivityLogger
+    protected function activityLogger(?string $logName = null): ActivityLogger
     {
         $defaultLogName = $this->getLogName();
 
