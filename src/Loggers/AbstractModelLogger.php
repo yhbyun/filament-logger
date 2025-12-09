@@ -12,11 +12,11 @@ use Spatie\Activitylog\ActivityLogStatus;
 
 abstract class AbstractModelLogger
 {
-    protected abstract function getLogName(): string;
+    abstract protected function getLogName(): string;
 
     protected function getUserName(?Authenticatable $user): string
     {
-        if(blank($user) || $user instanceof GenericUser) {
+        if (blank($user) || $user instanceof GenericUser) {
             return 'Anonymous';
         }
 
@@ -53,12 +53,38 @@ abstract class AbstractModelLogger
             $values = array_diff_key($values, array_flip($model->getHidden()));
         }
 
-        return $values;
+        // 타임스탬프 제외 (선택사항)
+        $excludeFields = ['created_at', 'updated_at', 'deleted_at'];
+        $values = array_diff_key($values, array_flip($excludeFields));
+
+        // old 값 추출
+        $original = $model->getOriginal();
+        $changed = [];
+        $old = [];
+
+        foreach ($values as $key => $newValue) {
+            $oldValue = $original[$key] ?? null;
+
+            // 값이 실제로 변경되었을 때만 추가
+            if ($oldValue !== $newValue) {
+                $changed[$key] = $newValue;
+                $old[$key] = $oldValue;
+            }
+        }
+
+        if (empty($changed)) {
+            return [];
+        }
+
+        return [
+            'attributes' => $changed,
+            'old' => $old,
+        ];
     }
 
     protected function log(Model $model, string $event, ?string $description = null, mixed $attributes = null)
     {
-        if(is_null($description)) {
+        if (is_null($description)) {
             $description = $this->getModelName($model).' '.$event;
         }
 
@@ -75,19 +101,19 @@ abstract class AbstractModelLogger
 
     public function created(Model $model)
     {
-        $this->log($model, 'Created', attributes:$model->getAttributes());
+        $this->log($model, 'Created', attributes: $model->getAttributes());
     }
 
     public function updated(Model $model)
     {
         $changes = $model->getChanges();
 
-        //Ignore the changes to remember_token
+        // Ignore the changes to remember_token
         if (count($changes) === 1 && array_key_exists('remember_token', $changes)) {
             return;
         }
 
-        $this->log($model, 'Updated', attributes:$changes);
+        $this->log($model, 'Updated', attributes: $changes);
     }
 
     public function deleted(Model $model)
